@@ -1,0 +1,16 @@
+# Web Framework
+fastapi>=0.109.0
+uvicorn[standard]>=0.27.0
+
+# HTTP Client (用于调用 DeepSeek 大模型)
+requests>=2.31.0
+
+# Data Validation (FastAPI 依赖这个做数据模型验证)
+pydantic>=2.6.0
+
+# Environment Management (用于读取 .env 文件中的 API Key)
+python-dotenv>=1.0.0
+
+# Optional: Code Formatting
+black
+isort

@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>基于大语言模型的海洋智能体协同调度系统</title>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+    <style>
+        /* === 1. 全局布局 === */
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            font-family: "Microsoft YaHei", "Heiti SC", sans-serif;
+            background-color: #f0f2f5;
+            overflow: hidden;
+        }
+
+        /* === 2. 顶部大标题栏 === */
+        .system-header {
+            height: 60px;
+            background-color: #002b4d;
+            color: white;
+            display: flex;
+            align-items: center;
+            padding: 0 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.5);
+            z-index: 100;
+            border-bottom: 2px solid #00ffff;
+        }
+
+        .system-header h1 {
+            margin: 0;
+            font-size: 22px;
+            font-weight: bold;
+            letter-spacing: 1px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            text-shadow: 0 0 5px #00ffff;
+        }
+
+        .system-header .subtitle {
+            font-size: 12px;
+            color: #00ffff;
+            margin-left: 15px;
+            margin-top: 5px;
+            opacity: 0.8;
+        }
+
+        /* === 3. 主体内容区 === */
+        .main-container {
+            flex: 1;
+            display: flex;
+            overflow: hidden;
+        }
+
+        /* === 左侧：聊天区 === */
+        .left-panel {
+            width: 35%;
+            background-color: #ffffff;
+            display: flex;
+            flex-direction: column;
+            border-right: 1px solid #ddd;
+        }
+
+        .chat-window {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            background-color: #f7f9fc;
+        }
+
+        .input-area {
+            padding: 20px;
+            background: white;
+            border-top: 1px solid #eee;
+            display: flex;
+            gap: 10px;
+        }
+
+        input {
+            flex: 1;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 6px;
+            font-size: 15px;
+            outline: none;
+        }
+        input:focus { border-color: #003366; }
+
+        button {
+            padding: 12px 24px;
+            background-color: #003366;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        button:hover { background-color: #002244; }
+        button:disabled { background-color: #ccc; }
+
+        /* === 右侧：总控区 === */
+        .right-panel {
+            width: 65%;
+            background-color: #0a0a0a;
+            display: flex;
+            flex-direction: column;
+            padding: 10px;
+            box-sizing: border-box;
+            border-left: 2px solid #333;
+        }
+
+        #ocean-map {
+            width: 100%;
+            height: 40%;
+            background-color: #050510;
+            border: 1px solid #004444;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            position: relative;
+            box-shadow: inset 0 0 20px rgba(0, 255, 255, 0.1);
+        }
+
+        .monitor-panel {
+            flex: 1;
+            background-color: #111;
+            color: #00ff00;
+            font-family: "Consolas", "Monaco", monospace;
+            display: flex;
+            flex-direction: column;
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 10px;
+            overflow: hidden;
+        }
+
+        .monitor-header {
+            border-bottom: 1px solid #333;
+            padding-bottom: 5px;
+            margin-bottom: 5px;
+            color: #fff;
+            font-size: 13px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .log-window {
+            flex: 1;
+            overflow-y: auto;
+            font-size: 12px;
+            line-height: 1.5;
+        }
+
+        /* 气泡样式 */
+        .msg-row { margin-bottom: 15px; display: flex; }
+        .msg-user { justify-content: flex-end; }
+        .msg-ai { justify-content: flex-start; }
+
+        .bubble {
+            max-width: 85%;
+            padding: 12px 16px;
+            border-radius: 8px;
+            position: relative;
+            font-size: 15px;
+            line-height: 1.5;
+        }
+        .bubble-user { background-color: #0056b3; color: white; border-bottom-right-radius: 2px; }
+        .bubble-ai { background-color: #fff; border: 1px solid #e1e4e8; border-bottom-left-radius: 2px; color: #333; }
+
+        .final-badge {
+            display: inline-block;
+            background: #28a745;
+            color: white;
+            font-size: 12px;
+            padding: 2px 6px;
+            border-radius: 4px;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+
+        .log-entry {
+            margin-bottom: 4px;
+            border-left: 2px solid #444;
+            padding-left: 8px;
+            opacity: 0;
+            animation: fadeIn 0.3s forwards;
+        }
+        .log-time { color: #666; margin-right: 8px; font-size: 11px; }
+        .log-agent { color: #00ffff; font-weight: bold; }
+        .log-action { color: #f1c40f; }
+        .log-content { color: #ddd; }
+
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #000; }
+        ::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
+
+        @keyframes fadeIn { to { opacity: 1; } }
+    </style>
+</head>
+<body>
+
+    <div class="system-header">
+        <h1>海洋智能体协同调度系统</h1>
+        <span class="subtitle">Multi-Agent Ocean Command Center</span>
+    </div>
+
+    <div class="main-container">
+        <div class="left-panel">
+            <div class="chat-window" id="chat-box">
+                <div style="text-align: center; color: #999; margin-top: 40px; font-size: 14px;">
+                    系统就绪。<br>请下达海洋态势感知指令...
+                </div>
+            </div>
+            <div class="input-area">
+                <input type="text" id="user-input" placeholder="例如：分析南海西沙海域的水温分布..." onkeypress="if(event.keyCode==13) startMission()">
+                <button onclick="startMission()" id="btn-send">执行</button>
+            </div>
+        </div>
+
+        <div class="right-panel">
+            <div id="ocean-map"></div>
+            <div class="monitor-panel">
+                <div class="monitor-header">
+                    <span>KERNEL LOGS / 核心调度日志</span>
+                    <span id="status-light" style="color: #00ff00;">● SYSTEM ONLINE</span>
+                </div>
+                <div class="log-window" id="log-box">
+                    <div class="log-entry" style="opacity: 1;">[SYSTEM] 可视化渲染引擎已就绪...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+        function cleanText(raw) {
+            if (!raw) return "";
+            let text = raw.toString();
+            text = text.replace(/[\*#]/g, "");
+            text = text.replace(/^[\s）\]\)\}\>：: ]+/, "");
+            return text;
+        }
+
+        // ==========================================
+        // ECharts 地图逻辑
+        // ==========================================
+        var myChart = echarts.init(document.getElementById('ocean-map'));
+
+        const geoCoordMap = {
+            "南海": [115, 15], "西沙": [112.3, 16.8], "南沙": [112.5, 10.5], "东海": [126, 29],
+            "太平洋": [160, 0], "马里亚纳": [142, 11],
+            "北冰洋": [-160, 80], "楚科奇": [-170, 70],
+            "印度洋": [75, 0], "马尔代夫": [73, 3],
+            "大西洋": [-40, 30], "百慕大": [-64, 32],
+            "南极": [0, -80], "威德尔": [-40, -75]
+        };
+
+        fetch('https://fastly.jsdelivr.net/npm/echarts@4.9.0/map/json/world.json')
+            .then(response => response.json())
+            .then(worldJson => {
+                echarts.registerMap('world', worldJson);
+                initMap();
+            })
+            .catch(e => {
+                document.getElementById('ocean-map').innerHTML = "<div style='color:white;padding:20px'>地图加载中...</div>";
+            });
+
+        function initMap() {
+            var option = {
+                backgroundColor: '#050510',
+                title: {
+                    text: 'GLOBAL OCEAN SITUATION / 全球海洋态势',
+                    left: 'left', top: 'top', textStyle: { color: '#fff', fontSize: 12 }
+                },
+                tooltip: { trigger: 'item' },
+                geo: {
+                    map: 'world',
+                    roam: true,
+                    zoom: 1.2,
+                    label: { emphasis: { show: false } },
+                    itemStyle: {
+                        normal: { areaColor: '#0a1a2a', borderColor: '#004444' },
+                        emphasis: { areaColor: '#2a333d' }
+                    }
+                },
+                series: [
+                    {
+                        name: 'Points',
+                        type: 'effectScatter',
+                        coordinateSystem: 'geo',
+                        data: [],
+                        symbolSize: 15,
+                        showEffectOn: 'render',
+                        rippleEffect: { brushType: 'stroke' },
+                        hoverAnimation: true,
+                        //  动态标签
+                        label: {
+                            normal: {
+                                formatter: function(p) {
+                                    // 格式：地点名字 + (换行) + 气泡里的温度
+                                    return p.data.tempStr ? `{a|${p.name}}\n{b|${p.data.icon} ${p.data.tempStr}}` : p.name;
+                                },
+                                position: 'right',
+                                show: true,
+                                rich: {
+                                    a: { color: '#fff', fontSize: 12, fontWeight: 'bold', lineHeight: 18 },
+                                    // 根据传入的 color 动态变色有点难，这里统一用白色文字，背景变色
+                                    b: { color: '#fff', fontSize: 11, padding: [2, 0, 0, 0] }
+                                }
+                            }
+                        },
+                        itemStyle: {
+                            // 默认颜色，会被具体的 data.itemStyle 覆盖
+                            normal: { color: '#f4e925', shadowBlur: 10, shadowColor: '#333' }
+                        },
+                        zlevel: 1
+                    }
+                ]
+            };
+            myChart.setOption(option);
+        }
+
+        // 🎨 核心：根据温度决定颜色和图标
+        function getTempStyle(temp) {
+            if (temp <= 5) {
+                // 极寒/深海 (白色/冰蓝)
+                return { color: '#e0f7fa', bg: 'rgba(200, 240, 255, 0.6)', icon: '❄️' };
+            } else if (temp <= 15) {
+                // 冷凉 (青色)
+                return { color: '#00d2ff', bg: 'rgba(0, 210, 255, 0.6)', icon: '💧' };
+            } else if (temp <= 28) {
+                // 温暖/舒适 (绿色)
+                return { color: '#00ff00', bg: 'rgba(0, 200, 0, 0.6)', icon: '🌿' };
+            } else if (temp < 30) {
+                // 炎热 (橙色)
+                return { color: '#ffa500', bg: 'rgba(255, 165, 0, 0.7)', icon: '☀️' };
+            } else {
+                // 极热 (红色)
+                return { color: '#ff3333', bg: 'rgba(255, 0, 0, 0.8)', icon: '🔥' };
+            }
+        }
+
+        function highlightMap(text) {
+            let foundData = [];
+
+            // 抓取温度数字
+            let tempMatch = text.match(/(-?\d+(\.\d+)?)\s*(°C|℃|度)/i);
+            let tempStr = "";
+            let tempVal = null;
+
+            if (tempMatch) {
+                tempStr = tempMatch[0];
+                tempVal = parseFloat(tempMatch[1]);
+            }
+
+            for (let key in geoCoordMap) {
+                if (text.includes(key)) {
+                    let item = {
+                        name: key,
+                        value: geoCoordMap[key],
+                        tempStr: tempStr,
+                        icon: ''
+                    };
+
+                    // 如果抓到了温度，应用色彩逻辑
+                    if (tempVal !== null) {
+                        const style = getTempStyle(tempVal);
+                        item.icon = style.icon;
+
+                        // 设置点的颜色
+                        item.itemStyle = {
+                            color: style.color,
+                            shadowColor: style.color,
+                            shadowBlur: 15
+                        };
+
+                        // 设置标签气泡的样式
+                        item.label = {
+                            normal: {
+                                show: true,
+                                formatter: `{a|${key}}\n{b|${style.icon} ${tempStr}}`,
+                                position: 'top',
+                                backgroundColor: style.bg, // 动态背景色
+                                borderRadius: 6,
+                                padding: [6, 10],
+                                rich: {
+                                    a: { color: '#fff', fontWeight: 'bold', align: 'center', fontSize: 13, lineHeight: 20 },
+                                    b: { color: '#fff', align: 'center', fontSize: 12, fontWeight: 'bold' }
+                                }
+                            }
+                        };
+                    }
+                    // 如果没抓到温度，但提到了地点，给个默认蓝色
+                    else {
+                        item.itemStyle = { color: '#f4e925' };
+                        item.label = {
+                            normal: {
+                                position: 'right',
+                                formatter: `{a|${key}}`,
+                                backgroundColor: 'rgba(0,0,0,0.5)',
+                                padding: [4,8],
+                                borderRadius: 4,
+                                rich: { a: { color: '#fff' } }
+                            }
+                        };
+                    }
+
+                    foundData.push(item);
+                }
+            }
+
+            if (foundData.length > 0) {
+                myChart.setOption({ series: [{ data: foundData }] });
+            }
+        }
+
+        // ==========================================
+        // 核心调度
+        // ==========================================
+        async function startMission() {
+            const input = document.getElementById("user-input");
+            const btn = document.getElementById("btn-send");
+            const statusLight = document.getElementById("status-light");
+            const logBox = document.getElementById("log-box");
+
+            const query = input.value.trim();
+            if (!query) return;
+
+            input.value = "";
+            input.disabled = true;
+            btn.disabled = true;
+            btn.innerText = "调度中...";
+            statusLight.innerText = "● PROCESSING";
+            statusLight.style.color = "yellow";
+
+            addChatMsg("user", query);
+
+            // 每次新任务清空地图
+            myChart.setOption({ series: [{ data: [] }] });
+
+            logBox.innerHTML = "";
+            addLog("SYSTEM", "Instruction Received", query);
+            await sleep(300);
+
+            highlightMap(query);
+
+            addLog("NETWORK", "Handshake", "Establishing connection...");
+
+            try {
+                const res = await fetch("http://127.0.0.1:8000/api/run", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ query: query })
+                });
+
+                if (!res.ok) throw new Error("API Error");
+                const data = await res.json();
+
+                if (data.steps && data.steps.length > 0) {
+                    for (let i = 0; i < data.steps.length; i++) {
+                        const step = data.steps[i];
+                        if (step.agent === "System" && step.action === "Init") continue;
+
+                        await sleep(Math.random() * 600 + 300);
+                        addLog(step.agent, step.action, step.output);
+
+                        highlightMap(step.output);
+                        highlightMap(step.input);
+                    }
+                }
+
+                await sleep(500);
+                addChatMsg("ai", data.final_answer);
+                addLog("SYSTEM", "Task Finished", "Visual data rendered on map.");
+
+            } catch (e) {
+                addLog("ERROR", "Connection Failed", "后端未启动");
+                addChatMsg("ai", "❌ 错误：请检查 main.py 是否运行");
+            } finally {
+                input.disabled = false;
+                btn.disabled = false;
+                btn.innerText = "执行";
+                statusLight.innerText = "● ONLINE";
+                statusLight.style.color = "#00ff00";
+                input.focus();
+            }
+        }
+
+        function addChatMsg(role, text) {
+            const box = document.getElementById("chat-box");
+            const div = document.createElement("div");
+            div.className = `msg-row msg-${role}`;
+            let cleaned = cleanText(text);
+            let html = role === "ai" ? `<div class="bubble bubble-ai"><span class="final-badge">最终结论</span><br>${cleaned.replace(/\n/g, "<br>")}</div>` : `<div class="bubble bubble-user">${cleaned}</div>`;
+            div.innerHTML = html;
+            box.appendChild(div);
+            box.scrollTop = box.scrollHeight;
+        }
+
+        function addLog(agent, action, content) {
+            const box = document.getElementById("log-box");
+            const div = document.createElement("div");
+            div.className = "log-entry";
+            let cleanContent = typeof content === 'string' ? cleanText(content) : JSON.stringify(content);
+            const time = new Date().toLocaleTimeString('en-GB');
+            div.innerHTML = `
+                <span class="log-time">[${time}]</span>
+                <span class="log-agent">${agent}</span>
+                <span class="log-action">>> ${action} :</span>
+                <span class="log-content"><pre style="margin: 0; white-space: pre-wrap; word-break: break-all; color: inherit;">${cleanContent}</pre></span>
+            `;
+            box.appendChild(div);
+            box.scrollTop = box.scrollHeight;
+        }
+
+        window.onresize = function() { myChart.resize(); };
+    </script>
+</body>
+</html>
